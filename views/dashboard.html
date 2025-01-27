@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Welcome to Your Dashboard</h1>
+  <button id="connect-bank">Connect to Bank</button>
+
+  <script>
+    const connectBankButton = document.getElementById('connect-bank');
+  
+    connectBankButton.addEventListener('click', async () => {
+      console.log("Connect Bank button clicked");
+      try {
+        const response = await fetch('/api/plaid/create-link-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+  
+        if (!response.ok) {
+          throw new Error('Failed to fetch link token');
+        }
+  
+        const data = await response.json();
+        const linkToken = data.link_token;
+  
+        if (!linkToken) {
+          throw new Error('Link token not returned by server');
+        }
+  
+        console.log('Link token retrieved:', linkToken);
+  
+        const handler = Plaid.create({
+          token: linkToken,
+          onSuccess: async (public_token, metadata) => {
+            console.log('Public token:', public_token, 'Metadata:', metadata);
+            try {
+              const res = await fetch('/api/plaid/exchange-public-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ public_token }),
+              });
+  
+              const result = await res.json();
+              if (result.success) {
+                alert('Bank account linked successfully!');
+              } else {
+                alert('Failed to link bank account.');
+              }
+            } catch (err) {
+              console.error('Error exchanging public token:', err);
+            }
+          },
+          onExit: (err, metadata) => {
+            console.error('Link process exited:', err, metadata);
+          },
+        });
+  
+        handler.open();
+      } catch (err) {
+        console.error('Error:', err);
+      }
+    });
+  </script>
+  
+
+  <script>
+    
+    document.getElementById('logout').addEventListener('click', () => {
+      
+      localStorage.removeItem('authToken');
+      alert('You have logged out.');
+      window.location.href = '/';
+    });
+  </script>
+</body>
+</html>
